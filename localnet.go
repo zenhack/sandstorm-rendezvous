@@ -3,9 +3,11 @@ package main
 import (
 	"context"
 	"errors"
+	"log"
 
 	"zenhack.net/go/sandstorm/capnp/ip"
 	"zenhack.net/go/sandstorm/capnp/util"
+	"zombiezen.com/go/capnproto2/server"
 )
 
 var _ LocalNetwork_Server = &LocalNetworkImpl{}
@@ -30,14 +32,17 @@ func newLocalNetwork() *LocalNetworkImpl {
 }
 
 func (ln *LocalNetworkImpl) unlock() {
+	log.Println("Unlocking network")
 	ln.mu <- struct{}{}
 }
 
 func (ln *LocalNetworkImpl) lock() {
+	log.Println("Locking network")
 	<-ln.mu
 }
 
 func (ln *LocalNetworkImpl) Bind(ctx context.Context, p LocalNetwork_bind) error {
+	log.Print("Bind()")
 	params := p.Args()
 	port := params.Port()
 
@@ -50,6 +55,7 @@ func (ln *LocalNetworkImpl) Bind(ctx context.Context, p LocalNetwork_bind) error
 	if err != nil {
 		return err
 	}
+	log.Print("name = ", name)
 
 	res, err := p.AllocResults()
 	if err != nil {
@@ -68,12 +74,14 @@ func (ln *LocalNetworkImpl) Bind(ctx context.Context, p LocalNetwork_bind) error
 	handle := util.Handle_ServerToClient(&portDropHandle{
 		name: name,
 		ln:   ln,
-	}, nil)
+	}, &server.Policy{})
 	res.SetHandle(handle)
+	log.Print("ok.")
 	return nil
 }
 
 func (ln *LocalNetworkImpl) Resolve(ctx context.Context, p LocalNetwork_resolve) error {
+	log.Print("Resolve()")
 	res, err := p.AllocResults()
 	if err != nil {
 		return err
@@ -82,6 +90,7 @@ func (ln *LocalNetworkImpl) Resolve(ctx context.Context, p LocalNetwork_resolve)
 	if err != nil {
 		return err
 	}
+	log.Print("name = ", name)
 
 	ln.lock()
 	defer ln.unlock()
@@ -90,6 +99,7 @@ func (ln *LocalNetworkImpl) Resolve(ctx context.Context, p LocalNetwork_resolve)
 		return ErrNotFound
 	}
 	res.SetPort(port)
+	log.Print("ok.")
 	return nil
 }
 
@@ -105,6 +115,7 @@ func (*portDropHandle) Ping(context.Context, util.Handle_ping) error {
 func (h *portDropHandle) Shutdown() error {
 	h.ln.lock()
 	defer h.ln.unlock()
+	log.Print("Dropping name = ", h.name)
 	port := h.ln.ports[h.name]
 	delete(h.ln.ports, h.name)
 	port.Client.Release()

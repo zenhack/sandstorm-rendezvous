@@ -3,10 +3,12 @@ package main
 import (
 	"context"
 	"io"
+	"log"
 	"net"
 
 	"zenhack.net/go/sandstorm/capnp/ip"
 	"zenhack.net/go/sandstorm/exp/util/bytestream"
+	"zombiezen.com/go/capnproto2/server"
 )
 
 func listenMain(urlStr string) {
@@ -16,14 +18,14 @@ func listenMain(urlStr string) {
 	tmuxEndpoint := ip.TcpPort_ServerToClient(streamEndpoint{
 		Network: "unix",
 		Addr:    tmuxPath(),
-	}, nil)
+	}, &server.Policy{})
 
 	sandstormEndpoint := ip.TcpPort_ServerToClient(streamEndpoint{
 		Network: "tcp",
-		Addr:    ":6080",
-	}, nil)
+		Addr:    sandstormAddr(),
+	}, &server.Policy{})
 
-	ln.Bind(ctx, func(p LocalNetwork_bind_Params) error {
+	fut1, rel := ln.Bind(ctx, func(p LocalNetwork_bind_Params) error {
 		info, err := p.NewInfo()
 		if err != nil {
 			return err
@@ -33,7 +35,7 @@ func listenMain(urlStr string) {
 		return nil
 	})
 
-	ln.Bind(ctx, func(p LocalNetwork_bind_Params) error {
+	fut2, rel := ln.Bind(ctx, func(p LocalNetwork_bind_Params) error {
 		info, err := p.NewInfo()
 		if err != nil {
 			return err
@@ -42,7 +44,19 @@ func listenMain(urlStr string) {
 		p.SetPort(sandstormEndpoint)
 		return nil
 	})
-
+	defer rel()
+	h, err := fut1.Struct()
+	if err != nil {
+		log.Printf("Error binding tmux: ", err)
+	} else {
+		defer h.Handle().Client.Release()
+	}
+	h, err = fut2.Struct()
+	if err != nil {
+		log.Printf("Error binding sandstorm: ", err)
+	} else {
+		defer h.Handle().Client.Release()
+	}
 	<-conn.Done()
 }
 
@@ -51,6 +65,7 @@ type streamEndpoint struct {
 }
 
 func (ep streamEndpoint) Connect(ctx context.Context, p ip.TcpPort_connect) error {
+	log.Println("Got connection")
 	res, err := p.AllocResults()
 	if err != nil {
 		return err
@@ -61,7 +76,7 @@ func (ep streamEndpoint) Connect(ctx context.Context, p ip.TcpPort_connect) erro
 		return err
 	}
 
-	res.SetUpstream(bytestream.FromWriteCloser(conn, nil))
+	res.SetUpstream(bytestream.FromWriteCloser(conn, &server.Policy{}))
 	downstream := p.Args().Downstream()
 	downstream.Client.AddRef()
 

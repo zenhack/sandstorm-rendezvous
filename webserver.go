@@ -49,6 +49,7 @@ func NewWebServer(ln LocalNetwork) http.Handler {
 	up := &websocket.Upgrader{}
 	r := mux.NewRouter()
 	r.HandleFunc("/socket", func(w http.ResponseWriter, req *http.Request) {
+		log.Println("Got websocket connection.")
 		conn, err := up.Upgrade(w, req, nil)
 		if err != nil {
 			log.Println("Error upgrading websocket:", err)

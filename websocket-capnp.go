@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"log"
 
 	"github.com/gorilla/websocket"
 	"zombiezen.com/go/capnproto2"
@@ -22,10 +23,17 @@ func (t websocketTransport) NewMessage(ctx context.Context) (
 	_ error,
 ) {
 	arena := capnp.SingleSegment(nil)
-	msg := &capnp.Message{Arena: arena}
+	msg, _, err := capnp.NewMessage(arena)
+	if err != nil {
+		return rpccp.Message{}, func() error { return nil }, func() {}, err
+	}
 	send = func() error {
-		// SingleSegment never returns an error when accessing segment 0:
-		data, _ := arena.Data(0)
+		data, err := msg.Marshal()
+		if err != nil {
+			log.Print("Error getting segment: ", err)
+			return err
+		}
+		log.Print("About to send message of size: ", len(data))
 
 		return t.conn.WriteMessage(websocket.BinaryMessage, data)
 	}
@@ -36,30 +44,31 @@ func (t websocketTransport) NewMessage(ctx context.Context) (
 }
 
 func (t websocketTransport) RecvMessage(ctx context.Context) (rpccp.Message, capnp.ReleaseFunc, error) {
+	log.Println("RecvMessage()")
 	var (
 		typ  int
 		data []byte
 		err  error
 	)
-	for ctx.Err() == nil {
+	for ctx.Err() == nil && typ != websocket.BinaryMessage {
 		typ, data, err = t.conn.ReadMessage()
+		log.Printf("typ = %v, len(data) = %v, err = %v", typ, len(data), err)
 		if err != nil {
 			return rpccp.Message{}, func() {}, err
 		}
-		switch typ {
-		case websocket.PingMessage:
+		if typ == websocket.PingMessage {
 			t.conn.WriteMessage(websocket.PongMessage, nil)
-		case websocket.BinaryMessage:
-			break
-		default:
-			continue
 		}
 	}
 	if err = ctx.Err(); err != nil {
 		return rpccp.Message{}, func() {}, err
 	}
+	log.Println("Got message of size %v", len(data))
 
-	msg := &capnp.Message{Arena: capnp.SingleSegment(data)}
+	msg, err := capnp.Unmarshal(data)
+	if err != nil {
+		return rpccp.Message{}, func() {}, err
+	}
 	rpcMsg, err := rpccp.ReadRootMessage(msg)
 	return rpcMsg, func() {}, err
 }
