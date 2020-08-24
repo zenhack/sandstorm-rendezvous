@@ -15,6 +15,7 @@ var _ LocalNetwork_Server = &LocalNetworkImpl{}
 var (
 	ErrAlreadyBound = errors.New("The name is already bound")
 	ErrNotFound     = errors.New("No such port.")
+	ErrNilPort      = errors.New("Can't Bind() a null port.")
 )
 
 type LocalNetworkImpl struct {
@@ -45,6 +46,9 @@ func (ln *LocalNetworkImpl) Bind(ctx context.Context, p LocalNetwork_bind) error
 	log.Print("Bind()")
 	params := p.Args()
 	port := params.Port()
+	if port.Client == nil {
+		return ErrNilPort
+	}
 
 	info, err := params.Info()
 	if err != nil {
@@ -68,8 +72,7 @@ func (ln *LocalNetworkImpl) Bind(ctx context.Context, p LocalNetwork_bind) error
 	if _, ok := ln.ports[name]; ok {
 		return ErrAlreadyBound
 	}
-	ln.ports[name] = port
-	port.Client.AddRef()
+	ln.ports[name] = ip.TcpPort{port.Client.AddRef()}
 
 	handle := util.Handle_ServerToClient(&portDropHandle{
 		name: name,

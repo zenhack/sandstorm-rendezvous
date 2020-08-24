@@ -7,6 +7,7 @@ import (
 	"net"
 
 	"zenhack.net/go/sandstorm/capnp/ip"
+	"zenhack.net/go/sandstorm/capnp/util"
 	"zenhack.net/go/sandstorm/exp/util/bytestream"
 	"zombiezen.com/go/capnproto2/server"
 )
@@ -79,7 +80,7 @@ func (ep streamEndpoint) Connect(ctx context.Context, p ip.TcpPort_connect) erro
 
 	res.SetUpstream(bytestream.FromWriteCloser(conn, &server.Policy{}))
 	downstream := p.Args().Downstream()
-	downstream.Client.AddRef()
+	downstream = util.ByteStream{downstream.Client.AddRef()}
 
 	w := bytestream.ToWriteCloser(context.TODO(), downstream)
 	go func() {
