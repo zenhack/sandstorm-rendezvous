@@ -12,7 +12,7 @@ import (
 func dialGrain(ctx context.Context, urlStr string) (*rpc.Conn, LocalNetwork) {
 	conn, _, err := (&websocket.Dialer{}).DialContext(ctx, urlStr, http.Header{})
 	if err != nil {
-		log.Fatal("Connecting to grain: %v", err)
+		log.Fatalf("Connecting to grain: %v", err)
 	}
 
 	rpcConn := rpc.NewConn(websocketTransport{conn}, nil)
