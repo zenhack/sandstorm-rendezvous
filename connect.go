@@ -39,7 +39,11 @@ func runProxy(ctx context.Context, lnc chan LocalNetwork, name, network, addr st
 		return nil
 	})
 	defer release()
-	port := res.Port()
+	r, err := res.Struct()
+	if err != nil {
+		log.Fatal("Error: ln.Resolve(): ", err)
+	}
+	port := r.Port()
 	for {
 		conn, err := l.Accept()
 		if err != nil {
@@ -47,6 +51,7 @@ func runProxy(ctx context.Context, lnc chan LocalNetwork, name, network, addr st
 			time.Sleep(time.Second)
 			continue
 		}
+		log.Print("Got connection for ", name)
 
 		go handleConn(ctx, conn, port)
 	}
@@ -60,5 +65,9 @@ func handleConn(ctx context.Context, conn net.Conn, port ip.TcpPort) {
 	})
 	defer release()
 	w := bytestream.ToWriteCloser(ctx, res.Upstream())
+	if _, err := res.Struct(); err != nil {
+		log.Print("TcpPort.Connect(): ", err)
+		return
+	}
 	io.Copy(w, conn)
 }

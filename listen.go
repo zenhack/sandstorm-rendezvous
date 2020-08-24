@@ -57,6 +57,7 @@ func listenMain(urlStr string) {
 	} else {
 		defer h.Handle().Client.Release()
 	}
+	log.Print("Listening!")
 	<-conn.Done()
 }
 
