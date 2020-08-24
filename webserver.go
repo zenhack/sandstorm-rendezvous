@@ -35,7 +35,8 @@ window.addEventListener('message', function(event) {
 	}
 });
 document.addEventListener('DOMContentLoaded', function() {
-	const template = "wss://$API_HOST/.sandstorm-token/$API_TOKEN";
+	const template = window.location.protocol.replace('http', 'ws') +
+		"//$API_HOST/.sandstorm-token/$API_TOKEN/socket";
 	window.parent.postMessage({renderTemplate: {
 		rpcId: "0",
 		template: template,
