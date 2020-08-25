@@ -2,9 +2,11 @@ package main
 
 import (
 	"context"
+	"fmt"
 	"io"
 	"log"
 	"net"
+	"os"
 	"time"
 
 	"zenhack.net/go/sandstorm/capnp/ip"
@@ -16,6 +18,10 @@ func connectMain(urlStr string) {
 	ctx := context.Background()
 	lnc1 := make(chan LocalNetwork, 1)
 	lnc2 := make(chan LocalNetwork, 1)
+	err := os.MkdirAll(fmt.Sprintf("/tmp/tmux-%d", os.Getuid()), 0750)
+	if err != nil {
+		log.Fatal("could not create socket dir: ", err)
+	}
 	go runProxy(ctx, lnc1, "tmux", "unix", tmuxPath())
 	go runProxy(ctx, lnc2, "sandstorm", "tcp", sandstormAddr())
 	conn, ln := dialGrain(ctx, urlStr)
@@ -31,6 +37,12 @@ func runProxy(ctx context.Context, lnc chan LocalNetwork, name, network, addr st
 	l, err := net.Listen(network, addr)
 	if err != nil {
 		log.Fatalf("Listening for %q: %v", name, err)
+	}
+	if network == "unix" {
+		err = os.Chmod(addr, 0660)
+		if err != nil {
+			log.Fatal("Setting socket permissions: ", err)
+		}
 	}
 	defer l.Close()
 	ln := <-lnc
