@@ -2,7 +2,6 @@ package main
 
 import (
 	"context"
-	"fmt"
 	"io"
 	"log"
 	"net"
@@ -17,16 +16,18 @@ import (
 func connectMain(urlStr string) {
 	ctx := context.Background()
 	lnc1 := make(chan LocalNetwork, 1)
-	lnc2 := make(chan LocalNetwork, 1)
-	err := os.MkdirAll(fmt.Sprintf("/tmp/tmux-%d", os.Getuid()), 0750)
-	if err != nil {
-		log.Fatal("could not create socket dir: ", err)
-	}
-	go runProxy(ctx, lnc1, "tmux", "unix", tmuxPath())
-	go runProxy(ctx, lnc2, "sandstorm", "tcp", sandstormAddr())
+	//lnc2 := make(chan LocalNetwork, 1)
+	/*
+		err := os.MkdirAll(fmt.Sprintf("/tmp/tmux-%d", os.Getuid()), 0750)
+		if err != nil {
+			log.Fatal("could not create socket dir: ", err)
+		}
+	*/
+	go runProxy(ctx, lnc1, "vnc", "tcp", "127.0.0.1:5901")
+	//go runProxy(ctx, lnc2, "sandstorm", "tcp", sandstormAddr())
 	conn, ln := dialGrain(ctx, urlStr)
 	lnc1 <- ln
-	lnc2 <- ln
+	//lnc2 <- ln
 	select {
 	case <-conn.Done():
 	case <-ctx.Done():

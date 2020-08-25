@@ -1,8 +1,10 @@
 package main
 
 import (
+	"io"
 	"log"
 	"net/http"
+	"os"
 
 	"github.com/gorilla/mux"
 	"github.com/gorilla/websocket"
@@ -17,6 +19,26 @@ var indexHtml = []byte(`
 		<script src="/offer-iframe.js"></script>
 	</head>
 	<body>
+		<h1>Connecting</h1>
+		<ol>
+			<li>Install tigervnc</li>
+			<li>download the <a href="/sandstorm-rendezvous">cli tool</a>, and put
+			it in your $PATH</li>
+			<li>Start the proxy by running <code>sandstorm-rendezvous
+			<strong>connect</strong> &lt;websocket-url&gt;</code></li>
+			<li>view the display with <code>vncviewer :1</code>
+		</ol>
+		<h1>Hosting</h1>
+		<ol>
+			<li>Install tigervnc</li>
+			<li>download the <a href="/sandstorm-rendezvoux">cli tool</a>, and put
+			it in your $PATH</li>
+			<li>Start the proxy by running <code>sandstorm-rendezvoux
+			<strong>listen</strong> &lt;websocket-url&gt;</code></li>
+			<li>Start a vnc session by running <code>vncserver :1</code></li>
+			<li>view the display with <code>vncviewer :1</code>
+		</ol>
+		<h1>Websocket URL</h1>
 		<iframe style="width: 100%; height: 55px; marign: 0; border: 0;" id="offer-iframe"></iframe>
 	</body>
 </html>
@@ -61,6 +83,16 @@ func NewWebServer(ln LocalNetwork) http.Handler {
 	r.HandleFunc("/offer-iframe.js", func(w http.ResponseWriter, req *http.Request) {
 		w.Header().Set("Content-Type", "application/javascript")
 		w.Write(offerIframeJS)
+	})
+	r.HandleFunc("/sandstorm-rendezvous", func(w http.ResponseWriter, req *http.Request) {
+		f, err := os.Open("/sandstorm-rendezvous")
+		if err != nil {
+			w.WriteHeader(500)
+			w.Write([]byte(err.Error()))
+			return
+		}
+		defer f.Close()
+		io.Copy(w, f)
 	})
 	r.HandleFunc("/", func(w http.ResponseWriter, req *http.Request) {
 		w.Header().Set("Content-Type", "text/html")
