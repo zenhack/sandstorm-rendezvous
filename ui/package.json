@@ -1,0 +1,27 @@
+{
+  "name": "sandstorm-rendezvous",
+  "version": "1.0.0",
+  "description": "UI for sandstorm-rendezvous vnc app",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/zenhack/sandstorm-rendezvous.git"
+  },
+  "author": "Ian Denhardt",
+  "license": "Apache-2.0",
+  "bugs": {
+    "url": "https://github.com/zenhack/sandstorm-rendezvous/issues"
+  },
+  "homepage": "https://github.com/zenhack/sandstorm-rendezvous#readme",
+  "dependencies": {
+    "@novnc/novnc": "^1.2.0"
+  },
+  "devDependencies": {
+    "rollup": "^2.26.5",
+    "rollup-plugin-node-resolve": "^5.2.0",
+    "uglify-es": "^3.3.9"
+  }
+}

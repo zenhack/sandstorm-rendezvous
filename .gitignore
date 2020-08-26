@@ -1,2 +1,4 @@
 /sandstorm-rendezvous
 *.spk
+static/*.min.js
+ui/*-bundle.js

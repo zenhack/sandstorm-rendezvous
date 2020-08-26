@@ -4,12 +4,17 @@
 # expect comments or ordering to be retained.
 etc/ld.so.cache
 etc/localtime
+etc/mime.types
 lib64
 proc/cpuinfo
 sandstorm-http-bridge
 sandstorm-http-bridge-config
 sandstorm-manifest
 sandstorm-rendezvous
+static
+static/index.html
+static/offer-iframe.js
+static/vnc-bundle.min.js
 usr/lib/ld-2.31.so
 usr/lib/ld-linux-x86-64.so.2
 usr/lib/libc-2.31.so

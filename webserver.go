@@ -1,75 +1,23 @@
 package main
 
 import (
+	"context"
 	"io"
 	"log"
 	"net/http"
 	"os"
 
-	"github.com/gorilla/mux"
 	"github.com/gorilla/websocket"
+
+	"zombiezen.com/go/capnproto2/server"
+
+	"zenhack.net/go/sandstorm/capnp/ip"
+	"zenhack.net/go/sandstorm/capnp/util"
 )
-
-var indexHtml = []byte(`
-<!doctype html>
-<html>
-	<head>
-		<meta charset="utf-8" />
-		<title>Rendezvous</title>
-		<script src="/offer-iframe.js"></script>
-	</head>
-	<body>
-		<h1>Connecting</h1>
-		<ol>
-			<li>Install tigervnc</li>
-			<li>download the <a href="/sandstorm-rendezvous">cli tool</a>, and put
-			it in your $PATH</li>
-			<li>Start the proxy by running <code>sandstorm-rendezvous
-			<strong>connect</strong> &lt;websocket-url&gt;</code></li>
-			<li>view the display with <code>vncviewer :1</code>
-		</ol>
-		<h1>Hosting</h1>
-		<ol>
-			<li>Install tigervnc</li>
-			<li>download the <a href="/sandstorm-rendezvoux">cli tool</a>, and put
-			it in your $PATH</li>
-			<li>Start the proxy by running <code>sandstorm-rendezvoux
-			<strong>listen</strong> &lt;websocket-url&gt;</code></li>
-			<li>Start a vnc session by running <code>vncserver :1</code></li>
-			<li>view the display with <code>vncviewer :1</code>
-		</ol>
-		<h1>Websocket URL</h1>
-		<iframe style="width: 100%; height: 55px; marign: 0; border: 0;" id="offer-iframe"></iframe>
-	</body>
-</html>
-`)
-
-var offerIframeJS = []byte(`
-window.addEventListener('message', function(event) {
-	if (event.data.rpcId !== "0") {
-		return;
-	}
-	if (event.data.error) {
-		console.log("ERROR: " + event.data.error);
-	} else {
-		const el = document.getElementById("offer-iframe");
-		el.setAttribute("src", event.data.uri);
-	}
-});
-document.addEventListener('DOMContentLoaded', function() {
-	const template = window.location.protocol.replace('http', 'ws') +
-		"//$API_HOST/.sandstorm-token/$API_TOKEN/socket";
-	window.parent.postMessage({renderTemplate: {
-		rpcId: "0",
-		template: template,
-		clipboardButton: 'left'
-	}}, "*");
-})
-`)
 
 func NewWebServer(ln LocalNetwork) http.Handler {
 	up := &websocket.Upgrader{}
-	r := mux.NewRouter()
+	r := http.NewServeMux()
 	r.HandleFunc("/socket", func(w http.ResponseWriter, req *http.Request) {
 		log.Println("Got websocket connection.")
 		conn, err := up.Upgrade(w, req, nil)
@@ -80,10 +28,16 @@ func NewWebServer(ln LocalNetwork) http.Handler {
 		}
 		serveCapnp(req.Context(), conn, ln.Client)
 	})
-	r.HandleFunc("/offer-iframe.js", func(w http.ResponseWriter, req *http.Request) {
-		w.Header().Set("Content-Type", "application/javascript")
-		w.Write(offerIframeJS)
+	r.HandleFunc("/guest.socket", func(w http.ResponseWriter, req *http.Request) {
+		conn, err := up.Upgrade(w, req, nil)
+		if err != nil {
+			log.Println("Error upgrading websocket:", err)
+			return
+		}
+		defer conn.Close()
+		serveGuest(req.Context(), conn, ln)
 	})
+	r.Handle("/", http.FileServer(http.Dir("static")))
 	r.HandleFunc("/sandstorm-rendezvous", func(w http.ResponseWriter, req *http.Request) {
 		f, err := os.Open("/sandstorm-rendezvous")
 		if err != nil {
@@ -94,9 +48,95 @@ func NewWebServer(ln LocalNetwork) http.Handler {
 		defer f.Close()
 		io.Copy(w, f)
 	})
-	r.HandleFunc("/", func(w http.ResponseWriter, req *http.Request) {
-		w.Header().Set("Content-Type", "text/html")
-		w.Write(indexHtml)
-	})
 	return r
+}
+
+func serveGuest(ctx context.Context, conn *websocket.Conn, ln LocalNetwork) {
+	resResolve, release := ln.Resolve(ctx, func(p LocalNetwork_resolve_Params) error {
+		p.SetName("vnc")
+		return nil
+	})
+	defer release()
+	resStruct, err := resResolve.Struct()
+	if err != nil {
+		log.Println("Error: ln.Resolve(): ", err)
+		return
+	}
+	port := resStruct.Port()
+	resConnect, release := port.Connect(ctx, func(p ip.TcpPort_connect_Params) error {
+		p.SetDownstream(util.ByteStream_ServerToClient(
+			websocketByteStream{conn},
+			&server.Policy{},
+		))
+		return nil
+	})
+	defer release()
+	upstream := resConnect.Upstream()
+	ctx, cancel := context.WithCancel(ctx)
+	errCh := make(chan func() error, 10) // buffer size is arbitrary.
+	go func() {
+		defer cancel()
+		for {
+			select {
+			case errFn := <-errCh:
+				err := errFn()
+				if err != nil {
+					log.Println("Error writing to bytestream:", err)
+					return
+				}
+			case <-ctx.Done():
+				return
+			}
+		}
+	}()
+	for ctx.Err() == nil {
+		typ, data, err := conn.ReadMessage()
+		if err != nil {
+			log.Println("reading from websocket: ", err)
+			return
+		}
+		// TODO: check typ
+		switch typ {
+		case websocket.CloseMessage:
+			res, release := upstream.Done(ctx, func(util.ByteStream_done_Params) error {
+				return nil
+			})
+			release()
+			_, err = res.Struct()
+			if err != nil {
+				log.Println("ByteStream.done():", err)
+			}
+			return
+		case websocket.BinaryMessage:
+			res, release := upstream.Write(ctx, func(p util.ByteStream_write_Params) error {
+				p.SetData(data)
+				return nil
+			})
+			errCh <- func() error {
+				_, err := res.Struct()
+				release()
+				return err
+			}
+		}
+	}
+}
+
+type websocketByteStream struct {
+	conn *websocket.Conn
+}
+
+func (s websocketByteStream) Write(ctx context.Context, p util.ByteStream_write) error {
+	data, err := p.Args().Data()
+	if err != nil {
+		return err
+	}
+	return s.conn.WriteMessage(websocket.BinaryMessage, data)
+}
+
+func (s websocketByteStream) Done(context.Context, util.ByteStream_done) error {
+	return s.conn.Close()
+}
+
+func (s websocketByteStream) ExpectSize(context.Context, util.ByteStream_expectSize) error {
+	return nil
 }
