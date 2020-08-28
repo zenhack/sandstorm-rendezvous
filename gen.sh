@@ -1,6 +1,9 @@
-# FIXME: this will only work on my(zenhack) machine, due to the hard-coded
-# paths we're passing to -I.
+#!/usr/bin/env sh
+
+set -euo pipefail
+# To run this, you need to set the variables to point to the paths
+# containing capnp files from go.sandstorm and go-capnproto2, respectively.
 capnp compile -ogo \
-	-I ~/src/pub/go.sandstorm/capnp/ \
-	-I ~/src/foreign/go-capnproto2/std/ \
+	-I $SANDSTORM_CAPNP \
+	-I $GO_CAPNP \
 	*.capnp
