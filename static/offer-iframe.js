@@ -11,7 +11,7 @@ window.addEventListener('message', function(event) {
 });
 document.addEventListener('DOMContentLoaded', function() {
   const template = window.location.protocol.replace('http', 'ws') +
-    "//$API_HOST/.sandstorm-token/$API_TOKEN/socket";
+    "//$API_HOST/.sandstorm-token/$API_TOKEN/host.socket";
   window.parent.postMessage({renderTemplate: {
     rpcId: "0",
     template: template,

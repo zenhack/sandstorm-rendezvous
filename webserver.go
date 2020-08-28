@@ -23,7 +23,7 @@ func NewWebServer() http.Handler {
 
 	up := &websocket.Upgrader{}
 	r := http.NewServeMux()
-	r.HandleFunc("/socket", func(w http.ResponseWriter, req *http.Request) {
+	r.HandleFunc("/host.socket", func(w http.ResponseWriter, req *http.Request) {
 		wsConn, err := up.Upgrade(w, req, nil)
 		if err != nil {
 			log.Println("Error upgrading websocket:", err)
