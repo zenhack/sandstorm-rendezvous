@@ -21,7 +21,7 @@ func listenMain(urlStr string) {
 
 	conn := dialGrain(ctx, urlStr, vncEndpoint.Client)
 
-	log.Print("Listening!")
+	log.Print("Listening...")
 	<-conn.Done()
 }
 
@@ -30,7 +30,7 @@ type streamEndpoint struct {
 }
 
 func (ep streamEndpoint) Connect(ctx context.Context, p ip.TcpPort_connect) error {
-	log.Println("Got connection")
+	log.Println("Got connection.")
 	res, err := p.AllocResults()
 	if err != nil {
 		return err

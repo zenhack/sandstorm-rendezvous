@@ -33,8 +33,6 @@ func (t websocketTransport) NewMessage(ctx context.Context) (
 			log.Print("Error getting segment: ", err)
 			return err
 		}
-		log.Print("About to send message of size: ", len(data))
-
 		return t.conn.WriteMessage(websocket.BinaryMessage, data)
 	}
 	release := func() {}
@@ -44,7 +42,6 @@ func (t websocketTransport) NewMessage(ctx context.Context) (
 }
 
 func (t websocketTransport) RecvMessage(ctx context.Context) (rpccp.Message, capnp.ReleaseFunc, error) {
-	log.Println("RecvMessage()")
 	var (
 		typ  int
 		data []byte
@@ -52,7 +49,6 @@ func (t websocketTransport) RecvMessage(ctx context.Context) (rpccp.Message, cap
 	)
 	for ctx.Err() == nil && typ != websocket.BinaryMessage {
 		typ, data, err = t.conn.ReadMessage()
-		log.Printf("typ = %v, len(data) = %v, err = %v", typ, len(data), err)
 		if err != nil {
 			return rpccp.Message{}, func() {}, err
 		}
@@ -63,7 +59,6 @@ func (t websocketTransport) RecvMessage(ctx context.Context) (rpccp.Message, cap
 	if err = ctx.Err(); err != nil {
 		return rpccp.Message{}, func() {}, err
 	}
-	log.Println("Got message of size %v", len(data))
 
 	msg, err := capnp.Unmarshal(data)
 	if err != nil {
