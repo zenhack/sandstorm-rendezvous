@@ -14,57 +14,13 @@ import (
 
 func listenMain(urlStr string) {
 	ctx := context.Background()
-	conn, ln := dialGrain(ctx, urlStr)
-
 	vncEndpoint := ip.TcpPort_ServerToClient(streamEndpoint{
 		Network: "tcp",
 		Addr:    "127.0.0.1:5901",
 	}, &server.Policy{})
 
-	/*
-		sandstormEndpoint := ip.TcpPort_ServerToClient(streamEndpoint{
-			Network: "tcp",
-			Addr:    sandstormAddr(),
-		}, &server.Policy{})
-	*/
+	conn := dialGrain(ctx, urlStr, vncEndpoint.Client)
 
-	fut1, rel := ln.Bind(ctx, func(p LocalNetwork_bind_Params) error {
-		info, err := p.NewInfo()
-		if err != nil {
-			return err
-		}
-		info.SetName("vnc")
-		p.SetPort(vncEndpoint)
-		return nil
-	})
-	defer rel()
-
-	/*
-		fut2, rel := ln.Bind(ctx, func(p LocalNetwork_bind_Params) error {
-			info, err := p.NewInfo()
-			if err != nil {
-				return err
-			}
-			info.SetName("sandstorm")
-			p.SetPort(sandstormEndpoint)
-			return nil
-		})
-		defer rel()
-	*/
-	h, err := fut1.Struct()
-	if err != nil {
-		log.Printf("Error binding vnc: ", err)
-	} else {
-		defer h.Handle().Client.Release()
-	}
-	/*
-		h, err = fut2.Struct()
-		if err != nil {
-			log.Printf("Error binding sandstorm: ", err)
-		} else {
-			defer h.Handle().Client.Release()
-		}
-	*/
 	log.Print("Listening!")
 	<-conn.Done()
 }

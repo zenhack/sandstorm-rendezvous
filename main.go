@@ -7,7 +7,7 @@ import (
 
 func usage() {
 	log.Fatalf(
-		"Usage: %v ( listen | connect ) wss://api-XXXX.sandstorm.example.com/...",
+		"Usage: %v listen wss://api-XXXX.sandstorm.example.com/...",
 		os.Args[0],
 	)
 }
@@ -24,11 +24,6 @@ func main() {
 			usage()
 		}
 		listenMain(os.Args[2])
-	case "connect":
-		if len(os.Args) <= 2 {
-			usage()
-		}
-		connectMain(os.Args[2])
 	default:
 		usage()
 	}

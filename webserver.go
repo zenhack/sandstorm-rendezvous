@@ -6,27 +6,50 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"sync"
 
 	"github.com/gorilla/websocket"
 
+	"zombiezen.com/go/capnproto2/rpc"
 	"zombiezen.com/go/capnproto2/server"
 
 	"zenhack.net/go/sandstorm/capnp/ip"
 	"zenhack.net/go/sandstorm/capnp/util"
 )
 
-func NewWebServer(ln LocalNetwork) http.Handler {
+func NewWebServer() http.Handler {
+	hostClient := ip.TcpPort{}
+	hostLock := &sync.Mutex{}
+
 	up := &websocket.Upgrader{}
 	r := http.NewServeMux()
 	r.HandleFunc("/socket", func(w http.ResponseWriter, req *http.Request) {
-		log.Println("Got websocket connection.")
-		conn, err := up.Upgrade(w, req, nil)
+		wsConn, err := up.Upgrade(w, req, nil)
 		if err != nil {
 			log.Println("Error upgrading websocket:", err)
-			w.WriteHeader(500)
 			return
 		}
-		serveCapnp(req.Context(), conn, ln.Client)
+		func() {
+			hostLock.Lock()
+			defer hostLock.Unlock()
+			if hostClient.Client != nil {
+				log.Println("Host client already connected; rejecting.")
+				w.WriteHeader(500)
+				return
+			}
+			rpcConn := rpc.NewConn(websocketTransport{wsConn}, nil)
+			client := rpcConn.Bootstrap(req.Context())
+			hostClient.Client = client
+			go func() {
+				<-req.Context().Done()
+				hostLock.Lock()
+				defer hostLock.Unlock()
+				if hostClient.Client == client {
+					hostClient.Client = nil
+				}
+			}()
+		}()
+		<-req.Context().Done()
 	})
 	r.HandleFunc("/guest.socket", func(w http.ResponseWriter, req *http.Request) {
 		conn, err := up.Upgrade(w, req, nil)
@@ -35,7 +58,7 @@ func NewWebServer(ln LocalNetwork) http.Handler {
 			return
 		}
 		defer conn.Close()
-		serveGuest(req.Context(), conn, ln)
+		serveGuest(req.Context(), conn, hostClient)
 	})
 	r.Handle("/", http.FileServer(http.Dir("static")))
 	r.HandleFunc("/sandstorm-rendezvous", func(w http.ResponseWriter, req *http.Request) {
@@ -51,19 +74,8 @@ func NewWebServer(ln LocalNetwork) http.Handler {
 	return r
 }
 
-func serveGuest(ctx context.Context, conn *websocket.Conn, ln LocalNetwork) {
-	resResolve, release := ln.Resolve(ctx, func(p LocalNetwork_resolve_Params) error {
-		p.SetName("vnc")
-		return nil
-	})
-	defer release()
-	resStruct, err := resResolve.Struct()
-	if err != nil {
-		log.Println("Error: ln.Resolve(): ", err)
-		return
-	}
-	port := resStruct.Port()
-	resConnect, release := port.Connect(ctx, func(p ip.TcpPort_connect_Params) error {
+func serveGuest(ctx context.Context, conn *websocket.Conn, port ip.TcpPort) {
+	res, release := port.Connect(ctx, func(p ip.TcpPort_connect_Params) error {
 		p.SetDownstream(util.ByteStream_ServerToClient(
 			websocketByteStream{conn},
 			&server.Policy{},
@@ -71,7 +83,7 @@ func serveGuest(ctx context.Context, conn *websocket.Conn, ln LocalNetwork) {
 		return nil
 	})
 	defer release()
-	upstream := resConnect.Upstream()
+	upstream := res.Upstream()
 	ctx, cancel := context.WithCancel(ctx)
 	errCh := make(chan func() error, 10) // buffer size is arbitrary.
 	go func() {
@@ -95,7 +107,6 @@ func serveGuest(ctx context.Context, conn *websocket.Conn, ln LocalNetwork) {
 			log.Println("reading from websocket: ", err)
 			return
 		}
-		// TODO: check typ
 		switch typ {
 		case websocket.CloseMessage:
 			res, release := upstream.Done(ctx, func(util.ByteStream_done_Params) error {
