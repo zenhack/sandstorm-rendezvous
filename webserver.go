@@ -10,8 +10,8 @@ import (
 
 	"github.com/gorilla/websocket"
 
-	"zombiezen.com/go/capnproto2/rpc"
-	"zombiezen.com/go/capnproto2/server"
+	"capnproto.org/go/capnp/v3"
+	"capnproto.org/go/capnp/v3/rpc"
 
 	"zenhack.net/go/sandstorm/capnp/ip"
 	"zenhack.net/go/sandstorm/capnp/util"
@@ -32,20 +32,20 @@ func NewWebServer() http.Handler {
 		func() {
 			hostLock.Lock()
 			defer hostLock.Unlock()
-			if hostClient.Client != nil {
+			if (hostClient != ip.TcpPort{}) {
 				log.Println("Host client already connected; rejecting.")
 				w.WriteHeader(500)
 				return
 			}
 			rpcConn := rpc.NewConn(websocketTransport{wsConn}, nil)
 			client := rpcConn.Bootstrap(req.Context())
-			hostClient.Client = client
+			hostClient = ip.TcpPort(client)
 			go func() {
 				<-req.Context().Done()
 				hostLock.Lock()
 				defer hostLock.Unlock()
-				if hostClient.Client == client {
-					hostClient.Client = nil
+				if capnp.Client(hostClient) == client {
+					hostClient = ip.TcpPort{}
 				}
 			}()
 		}()
@@ -78,7 +78,6 @@ func serveGuest(ctx context.Context, conn *websocket.Conn, port ip.TcpPort) {
 	res, release := port.Connect(ctx, func(p ip.TcpPort_connect_Params) error {
 		p.SetDownstream(util.ByteStream_ServerToClient(
 			websocketByteStream{conn},
-			&server.Policy{},
 		))
 		return nil
 	})

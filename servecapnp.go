@@ -3,12 +3,12 @@ package main
 import (
 	"context"
 
+	"capnproto.org/go/capnp/v3"
+	"capnproto.org/go/capnp/v3/rpc"
 	"github.com/gorilla/websocket"
-	"zombiezen.com/go/capnproto2"
-	"zombiezen.com/go/capnproto2/rpc"
 )
 
-func serveCapnp(ctx context.Context, wsConn *websocket.Conn, bootstrap *capnp.Client) {
+func serveCapnp(ctx context.Context, wsConn *websocket.Conn, bootstrap capnp.Client) {
 	transport := websocketTransport{wsConn}
 	rpcConn := rpc.NewConn(transport, &rpc.Options{
 		BootstrapClient: bootstrap,

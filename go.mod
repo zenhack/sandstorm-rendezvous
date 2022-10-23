@@ -3,10 +3,7 @@ module zenhack.net/go/sandstorm-rendezvous
 go 1.14
 
 require (
-	github.com/gorilla/mux v1.8.0
+	capnproto.org/go/capnp/v3 v3.0.0-alpha.7
 	github.com/gorilla/websocket v1.4.2
-	zenhack.net/go/sandstorm v0.0.0-20200807223653-d169734aeb58
-	zombiezen.com/go/capnproto2 v2.18.0+incompatible
+	zenhack.net/go/sandstorm v0.0.0-20221004231102-f230a21f7fb5
 )
-
-replace zombiezen.com/go/capnproto2 => /home/isd/src/foreign/go-capnproto2

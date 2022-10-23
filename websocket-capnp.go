@@ -4,10 +4,10 @@ import (
 	"context"
 	"log"
 
+	"capnproto.org/go/capnp/v3"
+	"capnproto.org/go/capnp/v3/rpc"
+	rpccp "capnproto.org/go/capnp/v3/std/capnp/rpc"
 	"github.com/gorilla/websocket"
-	"zombiezen.com/go/capnproto2"
-	"zombiezen.com/go/capnproto2/rpc"
-	rpccp "zombiezen.com/go/capnproto2/std/capnp/rpc"
 )
 
 type websocketTransport struct {
