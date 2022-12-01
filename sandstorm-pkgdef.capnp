@@ -17,7 +17,7 @@ const pkgdef :Spk.PackageDefinition = (
     # This manifest is included in your app package to tell Sandstorm
     # about your app.
 
-    appTitle = (defaultText = "Example App"),
+    appTitle = (defaultText = "Rendezvous"),
 
     appVersion = 0,  # Increment this for every release.
 
@@ -27,7 +27,7 @@ const pkgdef :Spk.PackageDefinition = (
 
     actions = [
       # Define your "new document" handlers here.
-      ( nounPhrase = (defaultText = "instance"),
+      ( nounPhrase = (defaultText = "session"),
         command = .myCommand
         # The command to run when starting for the first time. (".myCommand"
         # is just a constant defined at the bottom of the file.)
@@ -54,10 +54,10 @@ const pkgdef :Spk.PackageDefinition = (
         #marketBig = (svg = embed "path/to/market-big-300x300.svg"),
       ),
 
-      website = "http://example.com",
+      website = "https://github.com/zenhack/sandstorm-rendezvous",
       # This should be the app's main website url.
 
-      codeUrl = "http://example.com",
+      codeUrl = "https://github.com/zenhack/sandstorm-rendezvous",
       # URL of the app's source code repository, e.g. a GitHub URL.
       # Required if you specify a license requiring redistributing code, but optional otherwise.
 
